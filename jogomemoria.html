@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Memória</title>
+    <style>
+        /* Variáveis CSS para um tema mais limpo e fácil de gerenciar */
+        :root {
+            --bg-color: #f4f7f9;
+            --text-color: #2c3e50;
+            --primary-color: #3498db;
+            --accent-color: #2ecc71;
+            --warn-color: #e74c3c;
+            --card-face-bg: #ecf0f1;
+            --card-back-bg: #95a5a6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+            --transition-speed: 0.3s;
+        }
+
+        /* Estilos do Modo Noturno */
+        body.dark-mode {
+            --bg-color: #1f2a38;
+            --text-color: #ecf0f1;
+            --primary-color: #5d9cec;
+            --accent-color: #27ae60;
+            --warn-color: #c0392b;
+            --card-face-bg: #2c3e50;
+            --card-back-bg: #34495e;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Estilos Gerais */
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+            position: relative;
+        }
+
+        h2, h3 {
+            color: var(--text-color);
+            transition: color var(--transition-speed);
+        }
+        
+        button {
+            border: none;
+            cursor: pointer;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            padding: 12px 20px;
+            font-weight: bold;
+            transition: background-color var(--transition-speed), transform 0.1s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Layout */
+        .left-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .info-board {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            max-width: 600px;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+        
+        #gameModeIndicator {
+            font-size: 0.8em;
+            font-weight: normal;
+            margin-left: 10px;
+            color: var(--primary-color);
+        }
+
+        .stats {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .score-board, .attempts-board, .timer-board {
+            font-size: 1.4em;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 100px);
+            grid-gap: 60px;
+            perspective: 1000px;
+            position: relative;
+        }
+
+        /* Estilos dos Componentes */
+        .memory-card {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            border-radius: var(--border-radius);
+            z-index: 1;
+        }
+        
+        .memory-card.flip {
+            transform: rotateY(180deg);
+        }
+
+        .front-face, .back-face {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            border-radius: var(--border-radius);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: border-color var(--transition-speed), transform 0.3s, opacity 0.3s;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        /* Estilos para o modo Lupa */
+        .lupa-active .memory-card {
+            cursor: crosshair;
+        }
+        
+        .lupa-active .memory-card:not(.flip):not(.match):hover .front-face {
+            transform: rotateY(0deg);
+            opacity: 1;
+        }
+        
+        .lupa-active .memory-card:not(.flip):not(.match):hover .back-face {
+            transform: rotateY(180deg);
+            opacity: 0;
+        }
+
+        .front-face {
+            background-color: var(--card-face-bg);
+            transform: rotateY(180deg);
+            font-size: 0.7em;
+        }
+
+        .back-face {
+            background-color: var(--card-back-bg);
+            font-size: 2em;
+            color: var(--card-face-bg);
+        }
+        
+        /* Ajuste para imagens */
+        .front-face img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: var(--border-radius);
+        }
+
+        /* A classe match agora só muda a cor da borda das faces */
+        .memory-card.match .front-face,
+        .memory-card.match .back-face {
+            border-color: var(--primary-color);
+        }
+
+        /* Estilos da Animação de Pontos */
+        .points-animation {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.5em;
+            color: var(--primary-color);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            animation: fly-up-fade 1s forwards;
+        }
+
+        @keyframes fly-up-fade {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+        }
+
+        /* SWITCH REVELAR */
+        .reveal-mode-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            color: var(--text-color);
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--card-face-bg);
+            box-shadow: var(--shadow);
+            border-radius: 34px;
+            transition: .4s;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: .4s;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+
+        /* Overlays */
+        .game-over-overlay, .rules-overlay, .top-scores-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .game-over-overlay.show, .rules-overlay.show, .top-scores-overlay.show {
+            opacity: 1;
+        }
+        
+        .game-over-box, .rules-box, .top-scores-box {
+            background-color: var(--bg-color);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: var(--shadow);
+            position: relative;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .top-scores-box {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 2em;
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: var(--text-color);
+            transition: transform 0.1s;
+        }
+
+        .top-scores-list {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .top-scores-list li {
+            font-size: 1.1em;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid var(--card-face-bg);
+        }
+        
+        .top-scores-list li .primary-metric {
+            font-weight: bold;
+        }
+
+
+        /* MEDIA QUERY para Responsividade */
+        @media (max-width: 768px) {
+            .game-board {
+                grid-template-columns: repeat(5, 60px);
+                grid-gap: 15px;
+            }
+
+            .memory-card { width: 60px; height: 60px; }
+            .front-face { 
+                font-size: 0.7em; 
+            }
+            .back-face { font-size: 1.2em; }
+
+            .left-controls {
+                flex-direction: row;
+                top: 10px;
+                left: 10px;
+                gap: 5px;
+            }
+
+            .left-controls button {
+                padding: 8px 12px;
+                font-size: 0.8em;
+            }
+
+            .info-board {
+                flex-direction: column;
+                align-items: flex-start;
+                font-size: 0.9em;
+                margin-top: 150px;
+            }
+
+            .info-board .stats {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                font-size: 1.2em;
+            }
+
+            .restart-in-game-button {
+                font-size: 0.8em;
+                margin-top: 10px;
+            }
+
+            .game-over-box, .rules-box, .top-scores-box {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="left-controls">
+        <button id="modeToggle" class="mode-toggle">Modo Noturno</button>
+        <button id="rulesButton" class="rules-button">Regras</button>
+        <button id="topScoresButton" class="top-scores-button">Top 5</button>
+    </div>
+    
+    <div class="info-board">
+        <div class="stats">
+            <div class="score-board">Pontuação: <span id="score">0</span></div>
+            <div class="attempts-board">Tentativas: <span id="attempts">0</span></div>
+            <div class="timer-board">Tempo: <span id="timer">03:00</span></div>
+        </div>
+        <button id="restartInGameButton" class="restart-in-game-button">Reiniciar Jogo</button>
+    </div>
+    <div class="game-board"></div>
+    <div id="gameModeIndicator" style="position: absolute; bottom: 20px; left: 20px; font-weight: bold;">
+        Modo: Normal
+        <span id="lupaStatus" style="font-weight: normal; font-size: 0.8em; color: var(--accent-color);"></span>
+    </div>
+    
+    <div class="reveal-mode-container">
+      <label class="switch">
+        <input type="checkbox" id="revealModeSwitch">
+        <span class="slider"></span>
+      </label>
+      <span>Modo Revelar</span>
+    </div>
+
+    <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-box">
+            <h2 id="gameOverTitle">Parabéns!</h2>
+            <p>Você completou o jogo!</p>
+            <p>Tempo de Jogo: <span id="finalTime"></span></p>
+            <p>Pontuação Total: <span id="finalScore">0</span></p>
+            <p>Tentativas: <span id="finalAttempts">0</span></p>
+            <p>Eficiência: <span id="finalEfficiency">0</span></p>
+            <hr>
+            <p>Seu Recorde: <br>
+            Pontuação: <span id="recordScore">0</span> | Eficiência: <span id="recordEfficiency">0</span> | Tempo: <span id="recordTime">0</span></p>
+            <button class="restart-button" id="restartButton">Rejogar</button>
+        </div>
+    </div>
+
+    <div class="rules-overlay" id="rulesOverlay">
+        <div class="rules-box">
+            <button class="close-button" id="closeRulesButton">&times;</button>
+            <h2>Regras do Jogo</h2>
+            <p>Vire duas cartas por vez para encontrar os pares. Se elas forem iguais, você ganha pontos e elas ficam expostas. Se não, elas viram de volta.</p>
+            <p>Encontrar pares em sequência aumenta sua pontuação.</p>
+
+            <h3>Eficiência: Onde sua habilidade é testada</h3>
+            <p>A **eficiência** é a sua pontuação dividida pelo número de tentativas. Ela mostra quão bem você jogou, equilibrando pontos com a precisão dos seus acertos.</p>
+            <ul>
+                <li>**Excelente (acima de 7.5):** Memória de campeão! Você errou poucas vezes.</li>
+                <li>**Bom (de 5.0 a 7.5):** Desempenho sólido. Acertos na maioria das vezes.</li>
+                <li>**Médio (de 2.5 a 4.9):** Desempenho padrão. A cada acerto, você também errou algumas vezes.</li>
+                <li>**Ruim (abaixo de 2.5):** Muitas tentativas para poucos acertos.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="top-scores-overlay" id="topScoresOverlay">
+        <div class="top-scores-box">
+            <button class="close-button" id="closeTopScoresButton">&times;</button>
+            <h2>Melhores Pontuações</h2>
+            <h3>Por Pontuação</h3>
+            <ol class="top-scores-list" id="topScoresByScore"></ol>
+            <h3>Por Eficiência</h3>
+            <ol class="top-scores-list" id="topScoresByEfficiency"></ol>
+            <h3>Por Tempo (Min)</h3>
+            <ol class="top-scores-list" id="topScoresByTime"></ol>
+            <button class="clear-records-button" id="clearRecordsButton">Limpar Recordes</button>
+        </div>
+    </div>
+
+    <script>
+        const cardsNormal = [
+            'orvalho-de-fada', 'orvalho-de-fada',
+            'raiz-de-sombra', 'raiz-de-sombra',
+            'lagrima-de-basilisco', 'lagrima-de-basilisco',
+            'essencia-de-vento', 'essencia-de-vento',
+            'folha-de-coracao', 'folha-de-coracao',
+            'po-de-glacial', 'po-de-glacial',
+            'escama-de-dragao', 'escama-de-dragao',
+            'petala-de-flor-da-lua', 'petala-de-flor-da-lua',
+            'fluido-de-slime', 'fluido-de-slime',
+            'sangue-de-goblin', 'sangue-de-goblin'
+        ];
+
+        const cardsPantheon = [
+            'kelemvor', 'kelemvor',
+            'tiamat', 'tiamat',
+            'corellon', 'corellon',
+            'gruumsh', 'gruumsh',
+            'moradin', 'moradin',
+            'yondalla', 'yondalla',
+            'vecna', 'vecna',
+            'ehlonna', 'ehlonna',
+            'lolth', 'lolth',
+            'pelor', 'pelor'
+        ];
+
+        const gameBoard = document.querySelector('.game-board');
+        const scoreElement = document.getElementById('score');
+        const attemptsElement = document.getElementById('attempts');
+        const timerElement = document.getElementById('timer');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const rulesOverlay = document.getElementById('rulesOverlay');
+        const topScoresOverlay = document.getElementById('topScoresOverlay');
+        const topScoresByScoreList = document.getElementById('topScoresByScore');
+        const topScoresByEfficiencyList = document.getElementById('topScoresByEfficiency');
+        const topScoresByTimeList = document.getElementById('topScoresByTime');
+        const finalScoreElement = document.getElementById('finalScore');
+        const finalAttemptsElement = document.getElementById('finalAttempts');
+        const finalEfficiencyElement = document.getElementById('finalEfficiency');
+        const recordScoreElement = document.getElementById('recordScore');
+        const recordEfficiencyElement = document.getElementById('recordEfficiency');
+        const recordTimeElement = document.getElementById('recordTime');
+        const restartButton = document.getElementById('restartButton');
+        const restartInGameButton = document.getElementById('restartInGameButton');
+        const modeToggleButton = document.getElementById('modeToggle');
+        const rulesButton = document.getElementById('rulesButton');
+        const topScoresButton = document.getElementById('topScoresButton');
+        const clearRecordsButton = document.getElementById('clearRecordsButton');
+        const closeRulesButton = document.getElementById('closeRulesButton');
+        const closeTopScoresButton = document.getElementById('closeTopScoresButton');
+        const finalTimeElement = document.getElementById('finalTime');
+        const gameModeIndicator = document.getElementById('gameModeIndicator');
+        const lupaStatusElement = document.getElementById('lupaStatus');
+        const revealModeSwitch = document.getElementById('revealModeSwitch');
+
+        let shuffledCards = [];
+        let hasFlippedCard = false;
+        let lockBoard = false;
+        let firstCard, secondCard;
+        let score = 0;
+        let consecutiveStreak = 0;
+        let pairsFound = 0;
+        let attempts = 0;
+        let cardTextColors = {};
+        let unflipTimeout;
+        let allScores = [];
+        let timerInterval;
+        let timeLeft = 180;
+        let startTime = 0;
+        let isTimerStarted = false;
+        let pressedKeys = ''; 
+        let isPantheonMode = false;
+        let isLupaActive = false;
+        let isRevealMode = false;
+
+        function initScores() {
+            const storedScores = localStorage.getItem('memoryGameScores');
+            if (storedScores) {
+                allScores = JSON.parse(storedScores);
+            }
+        }
+        
+        function saveScore(newScore, newAttempts, newEfficiency, newTime) {
+            allScores.push({ score: newScore, attempts: newAttempts, efficiency: newEfficiency, time_in_seconds: newTime });
+            localStorage.setItem('memoryGameScores', JSON.stringify(allScores));
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}m ${remainingSeconds}s`;
+        }
+        
+        function createScoreListItem(entry, index, primaryMetric) {
+            const li = document.createElement('li');
+            const timeFormatted = formatTime(entry.time_in_seconds);
+            
+            const scoreHtml = primaryMetric === 'Pontuação' ? 
+                `<span class="primary-metric">Pontuação: ${entry.score}</span>` : 
+                `Pontuação: ${entry.score}`;
+
+            const efficiencyHtml = primaryMetric === 'Eficiência' ?
+                `<span class="primary-metric">Eficiência: ${entry.efficiency}</span>` :
+                `Eficiência: ${entry.efficiency}`;
+
+            const timeHtml = primaryMetric === 'Tempo' ?
+                `<span class="primary-metric">Tempo: ${timeFormatted}</span>` :
+                `Tempo: ${timeFormatted}`;
+
+            li.innerHTML = `${index + 1}º | ${scoreHtml} | ${efficiencyHtml} | ${timeHtml}`;
+            return li;
+        }
+
+        function displayTopScores() {
+            topScoresByScoreList.innerHTML = '';
+            topScoresByEfficiencyList.innerHTML = '';
+            topScoresByTimeList.innerHTML = '';
+
+            const sortedByScore = [...allScores].sort((a, b) => b.score - a.score || b.efficiency - a.efficiency).slice(0, 5);
+            const sortedByEfficiency = [...allScores].sort((a, b) => b.efficiency - a.efficiency || b.score - a.score).slice(0, 5);
+            const sortedByTime = [...allScores].sort((a, b) => a.time_in_seconds - b.time_in_seconds).slice(0, 5);
+
+            if (sortedByScore.length === 0) {
+                topScoresByScoreList.innerHTML = '<li>Nenhuma pontuação registrada ainda!</li>';
+                topScoresByEfficiencyList.innerHTML = '<li>Jogue uma partida para registrar sua eficiência!</li>';
+                topScoresByTimeList.innerHTML = '<li>Jogue uma partida para registrar seu tempo!</li>';
+            } else {
+                sortedByScore.forEach((entry, index) => {
+                    const li = createScoreListItem(entry, index, 'Pontuação');
+                    topScoresByScoreList.appendChild(li);
+                });
+
+                sortedByEfficiency.forEach((entry, index) => {
+                    const li = createScoreListItem(entry, index, 'Eficiência');
+                    topScoresByEfficiencyList.appendChild(li);
+                });
+
+                sortedByTime.forEach((entry, index) => {
+                    const li = createScoreListItem(entry, index, 'Tempo');
+                    topScoresByTimeList.appendChild(li);
+                });
+            }
+            topScoresOverlay.style.display = 'flex';
+        }
+        
+        function displayRecordScore() {
+            if (allScores.length > 0) {
+                const recordByScore = [...allScores].sort((a, b) => b.score - a.score)[0];
+                const recordByEfficiency = [...allScores].sort((a, b) => b.efficiency - a.efficiency)[0];
+                const recordByTime = [...allScores].sort((a, b) => a.time_in_seconds - b.time_in_seconds)[0];
+
+                recordScoreElement.textContent = recordByScore.score;
+                recordEfficiencyElement.textContent = recordByEfficiency.efficiency;
+                recordTimeElement.textContent = formatTime(recordByTime.time_in_seconds);
+            } else {
+                recordScoreElement.textContent = '0';
+                recordEfficiencyElement.textContent = '0';
+                recordTimeElement.textContent = '0';
+            }
+        }
+        
+        function clearRecords() {
+            if (confirm("Você tem certeza que deseja limpar todos os recordes?")) {
+                localStorage.removeItem('memoryGameScores');
+                allScores = [];
+                displayTopScores();
+                displayRecordScore();
+                hideTopScores();
+            }
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        function createBoard() {
+            gameBoard.innerHTML = '';
+            const cardSet = isPantheonMode ? cardsPantheon : cardsNormal;
+            shuffledCards = shuffle([...cardSet]);
+
+            shuffledCards.forEach(cardValue => {
+                const card = document.createElement('div');
+                card.classList.add('memory-card');
+                card.dataset.cardValue = cardValue;
+                card.innerHTML = `
+                    <div class="front-face">
+                        <img src="./images/${cardValue}.png" alt="${cardValue}">
+                    </div>
+                    <div class="back-face">?</div>
+                `;
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+            });
+            gameOverOverlay.style.display = 'none';
+
+            if (isRevealMode) {
+                lockBoard = true;
+                const allCards = document.querySelectorAll('.memory-card');
+                allCards.forEach(card => card.classList.add('flip'));
+                
+                setTimeout(() => {
+                    allCards.forEach(card => card.classList.remove('flip'));
+                    lockBoard = false;
+                }, 3000);
+            }
+        }
+
+        function flipCard() {
+            if (lockBoard) return;
+            if (this === firstCard) return;
+
+            if (!isTimerStarted) {
+                startTimer();
+                isTimerStarted = true;
+            }
+
+            this.style.zIndex = '99';
+            this.classList.add('flip');
+
+            if (!hasFlippedCard) {
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            secondCard = this;
+            attempts++;
+            attemptsElement.textContent = attempts;
+            checkForMatch();
+        }
+
+        function checkForMatch() {
+            if (!firstCard || !secondCard) return;
+            const isMatch = firstCard.dataset.cardValue === secondCard.dataset.cardValue;
+            
+            if (isMatch) {
+                let pointsEarned = 10;
+                if (consecutiveStreak > 0) {
+                    pointsEarned += 10 * consecutiveStreak;
+                }
+                showPointsAnimation(pointsEarned);
+                
+                disableCards();
+                updateScore(true);
+            } else {
+                unflipCards();
+                updateScore(false);
+            }
+        }
+
+        function showPointsAnimation(points) {
+            if (!secondCard) return;
+            const rect = secondCard.getBoundingClientRect();
+            const pointsElement = document.createElement('span');
+            pointsElement.classList.add('points-animation');
+            pointsElement.textContent = `+${points}`;
+            
+            pointsElement.style.left = `${rect.left + rect.width / 2}px`;
+            pointsElement.style.top = `${rect.top + rect.height / 2}px`;
+            
+            document.body.appendChild(pointsElement);
+            
+            pointsElement.addEventListener('animationend', () => {
+                pointsElement.remove();
+            });
+        }
+
+        function disableCards() {
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+            firstCard.classList.add('match');
+            secondCard.classList.add('match');
+            firstCard.style.zIndex = '1';
+            secondCard.style.zIndex = '1';
+            pairsFound++;
+            checkWin();
+            resetBoard();
+        }
+
+        function unflipCards() {
+            lockBoard = true;
+            unflipTimeout = setTimeout(() => {
+                if (firstCard) {
+                  firstCard.classList.remove('flip');
+                  firstCard.style.zIndex = '1';
+                }
+                if (secondCard) {
+                  secondCard.classList.remove('flip');
+                  secondCard.style.zIndex = '1';
+                }
+                resetBoard();
+            }, 1000);
+        }
+
+        function resetBoard() {
+            hasFlippedCard = false;
+            lockBoard = false;
+            firstCard = null;
+            secondCard = null;
+        }
+
+        function updateScore(isMatch) {
+            if (isMatch) {
+                consecutiveStreak++;
+                score += 10;
+                if (consecutiveStreak > 1) {
+                    score += 10 * (consecutiveStreak - 1);
+                }
+            } else {
+                consecutiveStreak = 0;
+            }
+            scoreElement.textContent = score;
+        }
+
+        function checkWin() {
+            const totalPairs = isPantheonMode ? cardsPantheon.length / 2 : cardsNormal.length / 2;
+            if (pairsFound === totalPairs) {
+                setTimeout(() => {
+                    endGame(false);
+                }, 1000);
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                timeLeft = 180 - elapsedTime;
+                
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    endGame(true);
+                    return;
+                }
+                
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function endGame(isTimeUp) {
+            clearInterval(timerInterval);
+            if (unflipTimeout) {
+                clearTimeout(unflipTimeout);
+            }
+            lockBoard = true;
+
+            const elapsedTimeInSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsedTimeInSeconds / 60);
+            const seconds = elapsedTimeInSeconds % 60;
+            finalTimeElement.textContent = `${minutes}m ${seconds}s`;
+
+            const efficiency = attempts > 0 ? (score / attempts).toFixed(2) : 0;
+            finalScoreElement.textContent = score;
+            finalAttemptsElement.textContent = attempts;
+            finalEfficiencyElement.textContent = efficiency;
+            
+            if (isTimeUp) {
+                gameOverTitle.textContent = "O tempo acabou!";
+            } else {
+                gameOverTitle.textContent = "Parabéns!";
+                saveScore(score, attempts, efficiency, elapsedTimeInSeconds);
+            }
+            
+            displayRecordScore();
+            gameOverOverlay.style.display = 'flex';
+            setTimeout(() => {
+                gameOverOverlay.classList.add('show');
+            }, 10);
+        }
+
+        function softRestart() {
+            clearInterval(timerInterval);
+            if (unflipTimeout) {
+                clearTimeout(unflipTimeout);
+            }
+
+            hasFlippedCard = false;
+            lockBoard = false;
+            firstCard = null;
+            secondCard = null;
+            
+            score = 0;
+            consecutiveStreak = 0;
+            pairsFound = 0;
+            attempts = 0;
+            timeLeft = 180;
+            isTimerStarted = false;
+            
+            scoreElement.textContent = score;
+            attemptsElement.textContent = attempts;
+            timerElement.textContent = '03:00';
+            gameOverTitle.textContent = 'Parabéns!';
+            
+            gameOverOverlay.classList.remove('show');
+            setTimeout(() => {
+                createBoard();
+            }, 500);
+        }
+        
+        function toggleModeAndRestart() {
+            isPantheonMode = !isPantheonMode;
+            gameModeIndicator.textContent = `Modo: ${isPantheonMode ? 'Panteão' : 'Normal'}`;
+            softRestart();
+        }
+        
+        function toggleLupa() {
+            isLupaActive = !isLupaActive;
+            const body = document.querySelector('body');
+            if (isLupaActive) {
+                body.classList.add('lupa-active');
+                lupaStatusElement.textContent = ' (Lupa Ativa)';
+            } else {
+                body.classList.remove('lupa-active');
+                lupaStatusElement.textContent = '';
+            }
+        }
+        
+        function toggleRevealMode() {
+            isRevealMode = !isRevealMode;
+            softRestart();
+        }
+
+        function showRules() {
+            rulesOverlay.style.display = 'flex';
+            setTimeout(() => { rulesOverlay.classList.add('show'); }, 10);
+        }
+        function hideRules() {
+            rulesOverlay.classList.remove('show');
+            setTimeout(() => { rulesOverlay.style.display = 'none'; }, 500);
+        }
+        function hideTopScores() {
+            topScoresOverlay.classList.remove('show');
+            setTimeout(() => { topScoresOverlay.style.display = 'none'; }, 500);
+        }
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            modeToggleButton.textContent = isDarkMode ? 'Modo Claro' : 'Modo Noturno';
+        }
+        
+        restartButton.addEventListener('click', softRestart);
+        restartInGameButton.addEventListener('click', softRestart);
+        modeToggleButton.addEventListener('click', toggleDarkMode);
+        rulesButton.addEventListener('click', showRules);
+        closeRulesButton.addEventListener('click', hideRules);
+        topScoresButton.addEventListener('click', () => {
+            displayTopScores();
+            topScoresOverlay.style.display = 'flex';
+            setTimeout(() => { topScoresOverlay.classList.add('show'); }, 10);
+        });
+        closeTopScoresButton.addEventListener('click', hideTopScores);
+        clearRecordsButton.addEventListener('click', clearRecords);
+        revealModeSwitch.addEventListener('change', toggleRevealMode);
+        
+        topScoresOverlay.addEventListener('click', (e) => {
+            if (e.target === topScoresOverlay) {
+                hideTopScores();
+            }
+        });
+
+        initScores();
+        softRestart();
+
+        window.addEventListener('keydown', (e) => {
+            if (gameOverOverlay.classList.contains('show') || rulesOverlay.classList.contains('show') || topScoresOverlay.classList.contains('show')) {
+                return;
+            }
+            pressedKeys = (pressedKeys + e.key).slice(-4);
+            if (pressedKeys === '1234') {
+                toggleModeAndRestart(); 
+                pressedKeys = ''; 
+            }
+            if (pressedKeys.slice(-4) === 'lupa') {
+                toggleLupa();
+                pressedKeys = '';
+            }
+        });
+    </script>
+</body>
+</html>
