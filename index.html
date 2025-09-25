@@ -170,14 +170,6 @@
             font-size: 2em;
             color: var(--card-face-bg);
         }
-        
-        /* Ajuste para imagens */
-        .front-face img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            border-radius: var(--border-radius);
-        }
 
         /* A classe match agora só muda a cor da borda das faces */
         .memory-card.match .front-face,
@@ -461,30 +453,34 @@
 
     <script>
         const cardsNormal = [
-            'orvalho-de-fada', 'orvalho-de-fada',
-            'raiz-de-sombra', 'raiz-de-sombra',
-            'lagrima-de-basilisco', 'lagrima-de-basilisco',
-            'essencia-de-vento', 'essencia-de-vento',
-            'folha-de-coracao', 'folha-de-coracao',
-            'po-de-glacial', 'po-de-glacial',
-            'escama-de-dragao', 'escama-de-dragao',
-            'petala-de-flor-da-lua', 'petala-de-flor-da-lua',
-            'fluido-de-slime', 'fluido-de-slime',
-            'sangue-de-goblin', 'sangue-de-goblin'
+            'Orvalho de Fada', 'Orvalho de Fada', 
+            'Raiz de Sombra', 'Raiz de Sombra',
+            'Lágrima de Basilisco', 'Lágrima de Basilisco',
+            'Essência de Vento', 'Essência de Vento',
+            'Folha de Coração', 'Folha de Coração',
+            'Pó de Glacial', 'Pó de Glacial',
+            'Escama de Dragão', 'Escama de Dragão',
+            'Pétala de Flor-da-Lua', 'Pétala de Flor-da-Lua',
+            'Fluido de Slime', 'Fluido de Slime',
+            'Sangue de Goblin', 'Sangue de Goblin'
         ];
 
-        const cardsPantheon = [
-            'kelemvor', 'kelemvor',
-            'tiamat', 'tiamat',
-            'corellon', 'corellon',
-            'gruumsh', 'gruumsh',
-            'moradin', 'moradin',
-            'yondalla', 'yondalla',
-            'vecna', 'vecna',
-            'ehlonna', 'ehlonna',
-            'lolth', 'lolth',
-            'pelor', 'pelor'
-        ];
+        // Mapeamento dos nomes das divindades para seus domínios
+        const pantheonDomains = {
+            'Kelemvor': 'Deus dos Mortos',
+            'Tiamat': 'Deusa da Ganância',
+            'Corellon': 'Deus da Magia',
+            'Gruumsh': 'Deus da Destruição',
+            'Moradin': 'Deus da Criação',
+            'Yondalla': 'Deusa da Proteção',
+            'Vecna': 'Deus dos Segredos',
+            'Ehlonna': 'Deusa da Natureza',
+            'Lolth': 'Deusa das Aranhas',
+            'Pelor': 'Deus do Sol'
+        };
+
+        // Cria o array de cartas do modo panteão apenas com os nomes
+        const cardsPantheon = Object.keys(pantheonDomains).flatMap(name => [name, name]);
 
         const gameBoard = document.querySelector('.game-board');
         const scoreElement = document.getElementById('score');
@@ -640,19 +636,39 @@
             return array;
         }
         
+        function getRandomDarkColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            const darkLetters = letters.substring(0, 9);
+            for (let i = 0; i < 6; i++) {
+                color += darkLetters[Math.floor(Math.random() * darkLetters.length)];
+            }
+            return color;
+        }
+
+        function createCardTextColors(cardSet) {
+            const uniqueCards = [...new Set(cardSet)];
+            cardTextColors = {};
+            uniqueCards.forEach(cardValue => {
+                cardTextColors[cardValue] = getRandomDarkColor();
+            });
+        }
+
         function createBoard() {
             gameBoard.innerHTML = '';
             const cardSet = isPantheonMode ? cardsPantheon : cardsNormal;
             shuffledCards = shuffle([...cardSet]);
-
+            createCardTextColors(cardSet);
             shuffledCards.forEach(cardValue => {
+                const textColor = cardTextColors[cardValue];
+                
+                const displayText = isPantheonMode ? `${cardValue}: ${pantheonDomains[cardValue]}` : cardValue;
+
                 const card = document.createElement('div');
                 card.classList.add('memory-card');
                 card.dataset.cardValue = cardValue;
                 card.innerHTML = `
-                    <div class="front-face">
-                        <img src="./images/${cardValue}.png" alt="${cardValue}">
-                    </div>
+                    <div class="front-face" style="color: ${textColor};">${displayText}</div>
                     <div class="back-face">?</div>
                 `;
                 card.addEventListener('click', flipCard);
@@ -920,12 +936,6 @@
         closeTopScoresButton.addEventListener('click', hideTopScores);
         clearRecordsButton.addEventListener('click', clearRecords);
         revealModeSwitch.addEventListener('change', toggleRevealMode);
-        
-        topScoresOverlay.addEventListener('click', (e) => {
-            if (e.target === topScoresOverlay) {
-                hideTopScores();
-            }
-        });
 
         initScores();
         softRestart();
